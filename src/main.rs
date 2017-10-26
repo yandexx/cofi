@@ -90,12 +90,16 @@ fn run() -> Result<()> {
             }
         }
 
+        let mut corrupted = false;
         for (i, _) in check_sums_src.iter().enumerate() {
             if *check_sums_src[i] != *check_sums_trg[i] {
+                corrupted = true;
                 println!("MD5 mismatch in block {}!", i);
-                println!("Original md5: \"{:x}\", target md5: \"{:x}\".", check_sums_src[i], check_sums_trg[i]);
-                panic!("Data got corrupted.");
+                println!("Original md5: \"{:x}\", current md5: \"{:x}\".", check_sums_src[i], check_sums_trg[i]);
             }
+        }
+        if corrupted == true {
+            panic!("Data got corrupted.");
         }
         println!("OK.");
         iteration += 1;

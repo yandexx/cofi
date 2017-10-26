@@ -22,11 +22,11 @@ error_chain! {
 
 fn run() -> Result<()> {
     let cmd_args: Vec<String> = std::env::args().collect(); 
+    println!("cofi -- corruption finder. v{}.\r\n", env!("CARGO_PKG_VERSION"));
     if cmd_args.len() != 4 {
-        println!("cofi -- corruption finder");
         println!("Usage: cofi block_size file_size \"path\"");
         println!();
-        println!("Example: cofi 4M 1G c:\\testfile.dat");
+        println!("Example: cofi 1M 100G d:\\testfile.dat");
         return Ok(())
     }
 

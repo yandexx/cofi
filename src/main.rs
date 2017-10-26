@@ -7,6 +7,7 @@ extern crate winapi;
 mod converter;
 use converter::literal_to_bytes; 
 
+use std::io;
 use std::io::prelude::*;
 use std::fs::OpenOptions;
 use std::os::windows::prelude::*;
@@ -43,7 +44,7 @@ fn run() -> Result<()> {
     let mut check_sums_src: Vec<md5::Digest> = Vec::with_capacity(blocks_total);    
     let mut check_sums_trg: Vec<md5::Digest> = Vec::with_capacity(blocks_total);    
 
-    let mut iteration = 0;
+    let mut iteration = 1;
     loop {
         {
             let mut pre_block: Vec<u8> = vec![0; block_size];
@@ -55,6 +56,9 @@ fn run() -> Result<()> {
                 .custom_flags(winapi::FILE_FLAG_NO_BUFFERING | winapi::FILE_FLAG_WRITE_THROUGH)
                 .open(path)?;
 
+            print!("Iteration {}: W... ", iteration);
+            io::stdout().flush()?;
+            
             for _ in 0..blocks_total {
                 thread_rng().fill_bytes(&mut pre_block);
                 let data_block = pre_block.clone();
@@ -76,6 +80,9 @@ fn run() -> Result<()> {
                 .custom_flags(winapi::FILE_FLAG_NO_BUFFERING)
                 .open(path)?;
 
+            print!("R... ");
+            io::stdout().flush()?;
+
             for _ in 0..blocks_total {
                 file.read(&mut data_block)?;
                 let digest = md5::compute(&data_block);
@@ -90,7 +97,7 @@ fn run() -> Result<()> {
                 panic!("Data got corrupted.");
             }
         }
-        println!("Iteration {} OK", iteration);
+        println!("OK.");
         iteration += 1;
         check_sums_src.clear();
         check_sums_trg.clear();

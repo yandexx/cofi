@@ -95,7 +95,7 @@ fn run() -> Result<()> {
                 let digest = md5::compute(&data_block);
                 check_sums_src.push(digest);
 
-                file.write(&data_block)?;
+                file.write_all(&data_block)?;
             }
             info!("Write exit.");
         }
@@ -113,7 +113,7 @@ fn run() -> Result<()> {
             info!("Read enter.");
 
             for _ in 0..blocks_total {
-                file.read(&mut data_block)?;
+                file.read_exact(&mut data_block)?;
                 let digest = md5::compute(&data_block);
                 check_sums_trg.push(digest);
             }
@@ -130,7 +130,7 @@ fn run() -> Result<()> {
                 error!("Original md5: \"{:x}\", current md5: \"{:x}\".", check_sums_src[i], check_sums_trg[i]);
             }
         }
-        if corrupted == true {
+        if corrupted {
             error!("Data got corrupted, panicking.");
             panic!("Data got corrupted.");
         }

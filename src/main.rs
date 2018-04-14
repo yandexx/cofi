@@ -2,7 +2,10 @@
 extern crate error_chain;
 extern crate rand; 
 extern crate md5;
+#[cfg(target_os = "windows")]
 extern crate winapi;
+#[cfg(not(target_os = "windows"))]
+extern crate libc;
 #[macro_use]
 extern crate log;
 extern crate fern; 
@@ -14,7 +17,10 @@ use converter::literal_to_bytes;
 use std::io;
 use std::io::prelude::*;
 use std::fs::OpenOptions;
+#[cfg(target_os = "windows")]
 use std::os::windows::prelude::*;
+#[cfg(not(target_os = "windows"))]
+use std::os::unix::fs::OpenOptionsExt;
 use rand::{thread_rng, Rng};
 
 error_chain! {
@@ -74,12 +80,27 @@ fn run() -> Result<()> {
         {
             let mut pre_block: Vec<u8> = vec![0; block_size];
 
-            let mut file = OpenOptions::new()
-                .create(true)
-                .write(true)
-                .truncate(true)
-                .custom_flags(winapi::FILE_FLAG_NO_BUFFERING | winapi::FILE_FLAG_WRITE_THROUGH)
-                .open(path)?;
+            #[cfg(target_os = "windows")]
+            fn open_file(path: &str) -> io::Result<std::fs::File> {
+                OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .truncate(true)
+                    .custom_flags(winapi::FILE_FLAG_NO_BUFFERING | winapi::FILE_FLAG_WRITE_THROUGH)
+                    .open(path)
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            fn open_file(path: &str) -> io::Result<std::fs::File> {
+                OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .truncate(true)
+                    .custom_flags(libc::O_SYNC | libc::O_DSYNC)
+                    .open(path)
+            }           
+
+            let mut file = open_file(&path)?;
 
             print!("Iteration {}: W... ", iteration);
             io::stdout().flush()?;
@@ -103,10 +124,22 @@ fn run() -> Result<()> {
         {
             let mut data_block: Vec<u8> = vec![0; block_size];
     
-            let mut file = OpenOptions::new()
-                .read(true)
-                .custom_flags(winapi::FILE_FLAG_NO_BUFFERING)
-                .open(path)?;
+            #[cfg(target_os = "windows")]
+            fn open_file(path: &str) -> io::Result<std::fs::File> {
+                OpenOptions::new()
+                    .read(true)
+                    .custom_flags(winapi::FILE_FLAG_NO_BUFFERING)
+                    .open(path)
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            fn open_file(path: &str) -> io::Result<std::fs::File> {
+                OpenOptions::new()
+                    .read(true)
+                    .open(path)
+            }  
+
+            let mut file = open_file(&path)?;
 
             print!("R... ");
             io::stdout().flush()?;

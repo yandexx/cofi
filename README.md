@@ -6,7 +6,8 @@ It generates random data blocks, calculates md5 for them, writes them to a targe
 
 The tool was used successfully in a production case to prove that corruption was happening.
 
-Windows only at the moment, as it uses the WinAPI `FILE_FLAG_NO_BUFFERING` flag to disallow any caching on the OS level, and additionally `FILE_FLAG_WRITE_THROUGH` during the writing stage.
+* On Windows the WinAPI `FILE_FLAG_NO_BUFFERING` flag is used, to disallow any caching on the OS level, and additionally `FILE_FLAG_WRITE_THROUGH` during the writing stage.
+* On Linux: `O_SYNC` and `O_DSYNC` flags during writing.
 
 ### Usage
 

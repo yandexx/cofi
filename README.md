@@ -1,5 +1,7 @@
 ## **cofi** — corruption finder
 
+[![Build status](https://ci.appveyor.com/api/projects/status/6778kw234wjcaf9p?svg=true)](https://ci.appveyor.com/project/yandexx/cofi)
+
 This is a simple tool that is designed to determine whether any data gets corrupted during I/O to a file.
 
 It generates random data blocks, calculates md5 for them, writes them to a target file, afterwards reads the data back and compares md5 hashes. This procedure repeats forever until stopped manually, or until corruption was detected.

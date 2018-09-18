@@ -22,6 +22,7 @@ use std::os::windows::prelude::*;
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::fs::OpenOptionsExt;
 use rand::{thread_rng, Rng};
+use winapi::um::winbase::{FILE_FLAG_NO_BUFFERING, FILE_FLAG_WRITE_THROUGH};
 
 error_chain! {
     foreign_links {
@@ -54,7 +55,7 @@ fn run() -> Result<()> {
             message
         ))
     })
-    .level(log::LogLevelFilter::Debug)
+    .level(log::LevelFilter::Debug)
     .chain(fern::log_file(log_file_name)?)
     .apply()?;
 
@@ -86,7 +87,7 @@ fn run() -> Result<()> {
                     .create(true)
                     .write(true)
                     .truncate(true)
-                    .custom_flags(winapi::FILE_FLAG_NO_BUFFERING | winapi::FILE_FLAG_WRITE_THROUGH)
+                    .custom_flags(FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH)
                     .open(path)
             }
 
@@ -107,7 +108,7 @@ fn run() -> Result<()> {
             info!("Write enter.");
             
             for _ in 0..blocks_total {
-                thread_rng().fill_bytes(&mut pre_block);
+                thread_rng().fill(&mut pre_block[..]);
                 let data_block = pre_block.clone();
                 if data_block != pre_block {
                     error!("Corruption in memory. Cloned block doesn't match the source. Panicking.");
@@ -128,7 +129,7 @@ fn run() -> Result<()> {
             fn open_file(path: &str) -> io::Result<std::fs::File> {
                 OpenOptions::new()
                     .read(true)
-                    .custom_flags(winapi::FILE_FLAG_NO_BUFFERING)
+                    .custom_flags(FILE_FLAG_NO_BUFFERING)
                     .open(path)
             }
 

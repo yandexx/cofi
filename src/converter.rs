@@ -5,19 +5,17 @@ pub fn literal_to_bytes(input: &str) -> Result<u64, String> {
             let (num_str, suffix) = input.split_at(input.len() - 1);
             let num = match num_str.parse::<u64>() {
                 Ok(num) => num,
-                Err(why) => return Err(format!("Can't parse \"{}\": {}.", num_str, why)), 
+                Err(why) => return Err(format!("Can't parse \"{}\": {}.", num_str, why)),
             };
             match suffix {
                 "K" => Ok(num * 1024),
                 "M" => Ok(num * 1024 * 1024),
                 "G" => Ok(num * 1024 * 1024 * 1024),
                 "T" => Ok(num * 1024 * 1024 * 1024 * 1024),
-                _ => {
-                    Err(format!(
-                        "Cannot convert: {}, or unknown suffix. Try K, M, G or T.",
-                        why
-                    ))
-                }
+                _ => Err(format!(
+                    "Cannot convert: {}, or unknown suffix. Try K, M, G or T.",
+                    why
+                )),
             }
         }
     }

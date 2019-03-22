@@ -170,8 +170,9 @@ fn main() -> Result<(), Error> {
         {
             let check_sums_src = check_sums_src.lock().unwrap();
             let check_sums_trg = check_sums_trg.lock().unwrap();
-            for (i, _) in check_sums_src.iter().enumerate() {
-                if *check_sums_src[i] != *check_sums_trg[i] {
+            assert_eq!(check_sums_src.len(), check_sums_trg.len());
+            for i in 0..check_sums_src.len() {
+                if check_sums_src[i] != check_sums_trg[i] {
                     corrupted = true;
                     println!("MD5 mismatch in block {}!", i);
                     println!(

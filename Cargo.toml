@@ -2,9 +2,9 @@
 name = "cofi"
 version = "0.1.4"
 authors = ["Vsevolod Zubarev <vsevolod.zubarev@veeam.com>"]
+edition = "2018"
 
 [dependencies]
-error-chain = "0.12.0"
 rand = "0.6.5"
 md5 = "0.6.1"
 winapi = { version = "0.3.6", features = ["winbase"] }
@@ -12,3 +12,4 @@ log = "0.4.6"
 fern = "0.5.7"
 chrono = "0.4.6"
 libc = "0.2.50"
+failure = "0.1.5"

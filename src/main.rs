@@ -1,19 +1,10 @@
 #[macro_use]
-extern crate error_chain;
-#[cfg(not(target_os = "windows"))]
-extern crate libc;
-extern crate md5;
-extern crate rand;
-#[cfg(target_os = "windows")]
-extern crate winapi;
-#[macro_use]
 extern crate log;
-extern crate chrono;
-extern crate fern;
 
 mod converter;
 use crate::converter::literal_to_bytes;
 
+use failure::Error;
 use rand::{thread_rng, Rng};
 use std::fs::OpenOptions;
 use std::io;
@@ -24,15 +15,7 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::os::windows::prelude::*;
 use winapi::um::winbase::{FILE_FLAG_NO_BUFFERING, FILE_FLAG_WRITE_THROUGH};
 
-error_chain! {
-    foreign_links {
-        Io(std::io::Error);
-        Convert(std::num::ParseIntError);
-        Log(log::SetLoggerError);
-    }
-}
-
-fn run() -> Result<()> {
+fn main() -> Result<(), Error> {
     let cmd_args: Vec<String> = std::env::args().collect();
     println!(
         "cofi -- corruption finder. v{}.\r\n",
@@ -190,5 +173,3 @@ fn run() -> Result<()> {
         check_sums_trg.clear();
     }
 }
-
-quick_main!(run);

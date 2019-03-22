@@ -1,10 +1,7 @@
-#[macro_use]
-extern crate log;
-
 mod converter;
 use crate::converter::literal_to_bytes;
-
 use failure::Error;
+use log::{error, info};
 use rand::{thread_rng, Rng};
 use std::fs::OpenOptions;
 use std::io;

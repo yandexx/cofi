@@ -1,5 +1,3 @@
-mod converter;
-use crate::converter::literal_to_bytes;
 use failure::Error;
 use log::{error, info};
 use rand::{thread_rng, Rng};
@@ -15,6 +13,9 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use winapi::um::winbase::{FILE_FLAG_NO_BUFFERING, FILE_FLAG_WRITE_THROUGH};
 
+mod converter;
+use crate::converter::literal_to_bytes;
+
 fn main() -> Result<(), Error> {
     let cmd_args: Vec<String> = std::env::args().collect();
     println!(
@@ -28,7 +29,7 @@ fn main() -> Result<(), Error> {
         return Ok(());
     }
 
-    let log_file_name = format!("cofi_{}.log", chrono::Local::now().format("%Y%m%d_%H%M%S"));
+    let log_file_name = format!("cofi-{}.log", chrono::Local::now().format("%Y%m%d-%H%M%S"));
     println!("Logging to {}\r\n", log_file_name);
 
     fern::Dispatch::new()
@@ -117,9 +118,11 @@ fn main() -> Result<(), Error> {
                 }
             });
             for _ in 0..blocks_total {
-                file.write_all(&receiver.recv().unwrap())?;
+                file.write_all(&receiver.recv()?)?;
             }
-            generator_thread.join().unwrap();
+            generator_thread
+                .join()
+                .expect("Couldn't join on block generator thread.");
             info!("Write exit.");
         }
 
@@ -149,7 +152,7 @@ fn main() -> Result<(), Error> {
             let check_sums_trg2 = check_sums_trg.clone();
             let summer_thread = thread::spawn(move || {
                 for _ in 0..blocks_total {
-                    let digest = md5::compute(receiver.recv().unwrap());
+                    let digest = md5::compute(receiver.recv().expect("Couldn't receive block."));
                     check_sums_trg2.lock().unwrap().push(digest);
                 }
             });
@@ -157,7 +160,9 @@ fn main() -> Result<(), Error> {
                 file.read_exact(&mut data_block)?;
                 sender.send(data_block.clone())?;
             }
-            summer_thread.join().unwrap();
+            summer_thread
+                .join()
+                .expect("Couldn't join on MD5 summer thread.");
             info!("Read exit.");
         }
 

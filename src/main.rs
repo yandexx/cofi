@@ -12,7 +12,7 @@ extern crate chrono;
 extern crate fern;
 
 mod converter;
-use converter::literal_to_bytes;
+use crate::converter::literal_to_bytes;
 
 use rand::{thread_rng, Rng};
 use std::fs::OpenOptions;
@@ -57,7 +57,8 @@ fn run() -> Result<()> {
                 record.level(),
                 message
             ))
-        }).level(log::LevelFilter::Debug)
+        })
+        .level(log::LevelFilter::Debug)
         .chain(fern::log_file(log_file_name)?)
         .apply()?;
 

@@ -7,6 +7,7 @@ pub fn literal_to_bytes(input: &str) -> Result<u64, String> {
                 Ok(num) => num,
                 Err(why) => return Err(format!("Can't parse \"{}\": {}.", num_str, why)),
             };
+            
             match suffix {
                 "K" => Ok(num * 1024),
                 "M" => Ok(num * 1024 * 1024),

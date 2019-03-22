@@ -12,6 +12,3 @@ log = "0.4.6"
 fern = "0.5.7"
 chrono = "0.4.6"
 libc = "0.2.50"
-
-[profile.release]
-debug = true

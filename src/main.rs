@@ -10,6 +10,9 @@ use std::io::prelude::*;
 use std::os::unix::fs::OpenOptionsExt;
 #[cfg(target_os = "windows")]
 use std::os::windows::prelude::*;
+use std::sync::mpsc::sync_channel;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use winapi::um::winbase::{FILE_FLAG_NO_BUFFERING, FILE_FLAG_WRITE_THROUGH};
 
 fn main() -> Result<(), Error> {
@@ -62,8 +65,8 @@ fn main() -> Result<(), Error> {
         blocks_total, block_size, path
     );
 
-    let mut check_sums_src: Vec<md5::Digest> = Vec::with_capacity(blocks_total);
-    let mut check_sums_trg: Vec<md5::Digest> = Vec::with_capacity(blocks_total);
+    let check_sums_src = Arc::new(Mutex::new(Vec::with_capacity(blocks_total)));
+    let check_sums_trg = Arc::new(Mutex::new(Vec::with_capacity(blocks_total)));
 
     let mut iteration = 1;
     loop {
@@ -96,20 +99,27 @@ fn main() -> Result<(), Error> {
             io::stdout().flush()?;
             info!("Write enter.");
 
-            for _ in 0..blocks_total {
-                thread_rng().fill(&mut pre_block[..]);
-                let data_block = pre_block.clone();
-                if data_block != pre_block {
-                    error!(
+            let (sender, receiver) = sync_channel(2);
+            let check_sums_src2 = check_sums_src.clone();
+            let generator_thread = thread::spawn(move || {
+                for _ in 0..blocks_total {
+                    thread_rng().fill(&mut pre_block[..]);
+                    let data_block = pre_block.clone();
+                    if data_block != pre_block {
+                        error!(
                         "Corruption in memory. Cloned block doesn't match the source. Panicking."
                     );
-                    panic!("Corruption in memory. Cloned block doesn't match the source");
+                        panic!("Corruption in memory. Cloned block doesn't match the source");
+                    }
+                    let digest = md5::compute(&data_block);
+                    check_sums_src2.lock().unwrap().push(digest);
+                    sender.send(data_block).unwrap();
                 }
-                let digest = md5::compute(&data_block);
-                check_sums_src.push(digest);
-
-                file.write_all(&data_block)?;
+            });
+            for _ in 0..blocks_total {
+                file.write_all(&receiver.recv().unwrap())?;
             }
+            generator_thread.join().unwrap();
             info!("Write exit.");
         }
 
@@ -135,28 +145,40 @@ fn main() -> Result<(), Error> {
             io::stdout().flush()?;
             info!("Read enter.");
 
+            let (sender, receiver) = sync_channel(2);
+            let check_sums_trg2 = check_sums_trg.clone();
+            let summer_thread = thread::spawn(move || {
+                for _ in 0..blocks_total {
+                    let digest = md5::compute(receiver.recv().unwrap());
+                    check_sums_trg2.lock().unwrap().push(digest);
+                }
+            });
             for _ in 0..blocks_total {
                 file.read_exact(&mut data_block)?;
-                let digest = md5::compute(&data_block);
-                check_sums_trg.push(digest);
+                sender.send(data_block.clone())?;
             }
+            summer_thread.join().unwrap();
             info!("Read exit.");
         }
 
         let mut corrupted = false;
-        for (i, _) in check_sums_src.iter().enumerate() {
-            if *check_sums_src[i] != *check_sums_trg[i] {
-                corrupted = true;
-                println!("MD5 mismatch in block {}!", i);
-                println!(
-                    "Original md5: \"{:x}\", current md5: \"{:x}\".",
-                    check_sums_src[i], check_sums_trg[i]
-                );
-                error!("MD5 mismatch in block {}!", i);
-                error!(
-                    "Original md5: \"{:x}\", current md5: \"{:x}\".",
-                    check_sums_src[i], check_sums_trg[i]
-                );
+        {
+            let check_sums_src = check_sums_src.lock().unwrap();
+            let check_sums_trg = check_sums_trg.lock().unwrap();
+            for (i, _) in check_sums_src.iter().enumerate() {
+                if *check_sums_src[i] != *check_sums_trg[i] {
+                    corrupted = true;
+                    println!("MD5 mismatch in block {}!", i);
+                    println!(
+                        "Original md5: \"{:x}\", current md5: \"{:x}\".",
+                        check_sums_src[i], check_sums_trg[i]
+                    );
+                    error!("MD5 mismatch in block {}!", i);
+                    error!(
+                        "Original md5: \"{:x}\", current md5: \"{:x}\".",
+                        check_sums_src[i], check_sums_trg[i]
+                    );
+                }
             }
         }
         if corrupted {
@@ -166,7 +188,7 @@ fn main() -> Result<(), Error> {
         println!("OK.");
         info!("Iteration {} OK", iteration);
         iteration += 1;
-        check_sums_src.clear();
-        check_sums_trg.clear();
+        check_sums_src.lock().unwrap().clear();
+        check_sums_trg.lock().unwrap().clear();
     }
 }

@@ -121,7 +121,6 @@ fn main() -> Result<(), Error> {
                         let digest = md5::compute(&data_block);
                         if blocks_generated.load(Ordering::SeqCst) < blocks_total {
                             blocks_generated.fetch_add(1, Ordering::SeqCst);
-                            
                             sender.send((data_block,digest)).unwrap();
                         } else {
                             break;

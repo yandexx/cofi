@@ -25,5 +25,5 @@ You can use **K**, **M**, **G** and **T** suffixes for convenience with **block_
 
 ### Building from source
 
-1. Install Rust https://www.rust-lang.org/en-US/
+1. Install Rust https://www.rust-lang.org/
 2. Run `cargo build --release` in the project folder.

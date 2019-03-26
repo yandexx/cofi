@@ -8,6 +8,7 @@ use std::io::prelude::*;
 use std::os::unix::fs::OpenOptionsExt;
 #[cfg(target_os = "windows")]
 use std::os::windows::prelude::*;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -72,8 +73,6 @@ fn main() -> Result<(), Error> {
     let mut iteration = 1;
     loop {
         {
-            let mut pre_block: Vec<u8> = vec![0; block_size];
-
             #[cfg(target_os = "windows")]
             fn open_file(path: &str) -> io::Result<std::fs::File> {
                 OpenOptions::new()
@@ -101,28 +100,45 @@ fn main() -> Result<(), Error> {
             info!("Write enter.");
 
             let (sender, receiver) = sync_channel(2);
-            let check_sums_src2 = check_sums_src.clone();
-            let generator_thread = thread::spawn(move || {
-                for _ in 0..blocks_total {
-                    thread_rng().fill(&mut pre_block[..]);
-                    let data_block = pre_block.clone();
-                    if data_block != pre_block {
-                        error!(
-                        "Corruption in memory. Cloned block doesn't match the source. Panicking."
-                    );
-                        panic!("Corruption in memory. Cloned block doesn't match the source");
+
+            let blocks_generated = Arc::new(AtomicUsize::new(0));
+
+            let mut generator_threads = vec![];
+            for _ in 0..num_cpus::get() {
+                let sender = sender.clone();
+                let blocks_generated = blocks_generated.clone();
+                generator_threads.push(thread::spawn(move || {
+                    let mut pre_block: Vec<u8> = vec![0; block_size];
+                    loop {
+                        thread_rng().fill(&mut pre_block[..]);
+                        let data_block = pre_block.clone();
+                        if data_block != pre_block {
+                            error!(
+                                "Corruption in memory. Cloned block doesn't match the source. Panicking."
+                            );
+                            panic!("Corruption in memory. Cloned block doesn't match the source.");
+                        }
+                        let digest = md5::compute(&data_block);
+                        if blocks_generated.load(Ordering::SeqCst) < blocks_total {
+                            blocks_generated.fetch_add(1, Ordering::SeqCst);
+                            
+                            sender.send((data_block,digest)).unwrap();
+                        } else {
+                            break;
+                        }
                     }
-                    let digest = md5::compute(&data_block);
-                    check_sums_src2.lock().unwrap().push(digest);
-                    sender.send(data_block).unwrap();
-                }
-            });
-            for _ in 0..blocks_total {
-                file.write_all(&receiver.recv()?)?;
+                }));
             }
-            generator_thread
-                .join()
-                .expect("Couldn't join on block generator thread.");
+            for _ in 0..blocks_total {
+                let (data_block, digest) = receiver.recv()?;
+                file.write_all(&data_block)?;
+                check_sums_src.lock().unwrap().push(digest);
+            }
+            for thread in generator_threads {
+                thread
+                    .join()
+                    .expect("Couldn't join on block generator thread.");
+            }
             info!("Write exit.");
         }
 
@@ -192,7 +208,7 @@ fn main() -> Result<(), Error> {
             panic!("Data got corrupted.");
         }
         println!("OK.");
-        info!("Iteration {} OK", iteration);
+        info!("Iteration {} OK.", iteration);
         iteration += 1;
         check_sums_src.lock().unwrap().clear();
         check_sums_trg.lock().unwrap().clear();

@@ -8,7 +8,7 @@ use std::io::prelude::*;
 use std::os::unix::fs::OpenOptionsExt;
 #[cfg(target_os = "windows")]
 use std::os::windows::prelude::*;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -68,7 +68,6 @@ fn main() -> Result<(), Error> {
     );
 
     let check_sums_src = Arc::new(Mutex::new(Vec::with_capacity(blocks_total)));
-    let check_sums_trg = Arc::new(Mutex::new(Vec::with_capacity(blocks_total)));
 
     let mut iteration = 1;
     loop {
@@ -141,9 +140,8 @@ fn main() -> Result<(), Error> {
             info!("Write exit.");
         }
 
+        let corrupted = Arc::new(AtomicBool::new(false));
         {
-            let mut data_block: Vec<u8> = vec![0; block_size];
-
             #[cfg(target_os = "windows")]
             fn open_file(path: &str) -> io::Result<std::fs::File> {
                 OpenOptions::new()
@@ -163,46 +161,53 @@ fn main() -> Result<(), Error> {
             io::stdout().flush()?;
             info!("Read enter.");
 
-            let (sender, receiver) = sync_channel(2);
-            let check_sums_trg2 = check_sums_trg.clone();
-            let summer_thread = thread::spawn(move || {
-                for _ in 0..blocks_total {
-                    let digest = md5::compute(receiver.recv().expect("Couldn't receive block."));
-                    check_sums_trg2.lock().unwrap().push(digest);
-                }
-            });
-            for _ in 0..blocks_total {
-                file.read_exact(&mut data_block)?;
-                sender.send(data_block.clone())?;
+            let (sender, receiver) = crossbeam_channel::bounded(4);
+
+            let mut summer_threads = vec![];
+            for _ in 0..num_cpus::get() {
+                let corrupted = corrupted.clone();
+                let receiver = receiver.clone();
+                summer_threads.push(thread::spawn(move || loop {
+                    if let Some((block, i, check_sum_src)) =
+                        receiver.recv().expect("Couldn't receive block.")
+                    {
+                        let digest = md5::compute(block);
+                        if check_sum_src != digest {
+                            corrupted.store(true, Ordering::Relaxed);
+                            println!("MD5 mismatch in block {}!", i);
+                            println!(
+                                "Original md5: \"{:x}\", current md5: \"{:x}\".",
+                                check_sum_src, digest
+                            );
+                            error!("MD5 mismatch in block {}!", i);
+                            error!(
+                                "Original md5: \"{:x}\", current md5: \"{:x}\".",
+                                check_sum_src, digest
+                            );
+                        }
+                    } else {
+                        break;
+                    }
+                }));
             }
-            summer_thread
-                .join()
-                .expect("Couldn't join on MD5 summer thread.");
+            let mut data_block: Vec<u8> = vec![0; block_size];
+            let check_sums_src = check_sums_src.lock().unwrap();
+            for i in 0..blocks_total {
+                file.read_exact(&mut data_block)?;
+                sender.send(Some((data_block.clone(), i, check_sums_src[i])))?;
+            }
+            for _ in 0..summer_threads.len() {
+                sender.send(None).unwrap();
+            }
+            for thread in summer_threads {
+                thread
+                    .join()
+                    .expect("Couldn't join on a MD5 summer thread.");
+            }
             info!("Read exit.");
         }
 
-        let mut corrupted = false;
-        {
-            let check_sums_src = check_sums_src.lock().unwrap();
-            let check_sums_trg = check_sums_trg.lock().unwrap();
-            assert_eq!(check_sums_src.len(), check_sums_trg.len());
-            for i in 0..check_sums_src.len() {
-                if check_sums_src[i] != check_sums_trg[i] {
-                    corrupted = true;
-                    println!("MD5 mismatch in block {}!", i);
-                    println!(
-                        "Original md5: \"{:x}\", current md5: \"{:x}\".",
-                        check_sums_src[i], check_sums_trg[i]
-                    );
-                    error!("MD5 mismatch in block {}!", i);
-                    error!(
-                        "Original md5: \"{:x}\", current md5: \"{:x}\".",
-                        check_sums_src[i], check_sums_trg[i]
-                    );
-                }
-            }
-        }
-        if corrupted {
+        if corrupted.load(Ordering::Relaxed) {
             error!("Data got corrupted, panicking.");
             panic!("Data got corrupted.");
         }
@@ -210,6 +215,5 @@ fn main() -> Result<(), Error> {
         info!("Iteration {} OK.", iteration);
         iteration += 1;
         check_sums_src.lock().unwrap().clear();
-        check_sums_trg.lock().unwrap().clear();
     }
 }

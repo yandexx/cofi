@@ -9,7 +9,6 @@ use std::os::unix::fs::OpenOptionsExt;
 #[cfg(target_os = "windows")]
 use std::os::windows::prelude::*;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use winapi::um::winbase::{FILE_FLAG_NO_BUFFERING, FILE_FLAG_WRITE_THROUGH};
@@ -98,7 +97,7 @@ fn main() -> Result<(), Error> {
             io::stdout().flush()?;
             info!("Write enter.");
 
-            let (sender, receiver) = sync_channel(2);
+            let (sender, receiver) = crossbeam_channel::bounded(4);
 
             let blocks_generated = Arc::new(AtomicUsize::new(0));
 

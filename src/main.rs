@@ -166,8 +166,8 @@ fn main() -> Result<(), Error> {
             for _ in 0..num_cpus::get() {
                 let corrupted = corrupted.clone();
                 let receiver = receiver.clone();
-                summer_threads.push(thread::spawn(move || loop {
-                    if let Some((block, i, check_sum_src)) =
+                summer_threads.push(thread::spawn(move || {
+                    while let Some((block, i, check_sum_src)) =
                         receiver.recv().expect("Couldn't receive block.")
                     {
                         let digest = md5::compute(block);
@@ -184,19 +184,17 @@ fn main() -> Result<(), Error> {
                                 check_sum_src, digest
                             );
                         }
-                    } else {
-                        break;
                     }
                 }));
             }
             let mut data_block: Vec<u8> = vec![0; block_size];
             let check_sums_src = check_sums_src.lock().unwrap();
-            for i in 0..blocks_total {
+            for (i, check_sum) in check_sums_src.iter().enumerate().take(blocks_total) {
                 file.read_exact(&mut data_block)?;
-                sender.send(Some((data_block.clone(), i, check_sums_src[i])))?;
+                sender.send(Some((data_block.clone(), i, *check_sum)))?;
             }
             for _ in 0..summer_threads.len() {
-                sender.send(None).unwrap();
+                sender.send(None)?;
             }
             for thread in summer_threads {
                 thread

@@ -1,4 +1,4 @@
-use failure::Error;
+use failure::{format_err, Error};
 use log::{error, info};
 use rand::{thread_rng, Rng};
 use std::fs::OpenOptions;
@@ -205,8 +205,8 @@ fn main() -> Result<(), Error> {
         }
 
         if corrupted.load(Ordering::Relaxed) {
-            error!("Data got corrupted, panicking.");
-            panic!("Data got corrupted.");
+            error!("Data got corrupted, exiting.");
+            return Err(format_err!("Data got corrupted."));
         }
         println!("OK.");
         info!("Iteration {} OK.", iteration);

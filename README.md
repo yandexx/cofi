@@ -4,7 +4,7 @@
 
 This is a simple tool that is designed to determine whether any data gets corrupted during I/O to a file.
 
-It generates random data blocks, calculates md5 for them, writes them to a target file, afterwards reads the data back and compares md5 hashes. This procedure repeats forever until stopped manually, or until corruption was detected.
+It generates random data blocks, calculates md5 for them, writes them to a target file, afterwards reads the data back and compares md5 hashes. This procedure repeats forever until stopped manually, or until corruption gets detected.
 
 The tool was used successfully in a production case to prove that corruption was happening.
 
@@ -13,15 +13,26 @@ The tool was used successfully in a production case to prove that corruption was
 
 ### Usage
 
-`cofi block_size file_size "path"`
+```
+USAGE:
+    cofi.exe [OPTIONS] <blocksize> <filesize> <path>
 
-Where **block_size** is the size of one I/O operation, and **file_size** is the target file size, to be created on **path** (which gets overwritten without notice). This is for a single iteration, which then gets repeated.
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
 
-You can use **K**, **M**, **G** and **T** suffixes for convenience with **block_size** and **file_size**.
+OPTIONS:
+    -t, --threads <threads>    The number of concurrent workers. Each worker works with a separate file. [default: 1]
+
+ARGS:
+    <blocksize>    Block size of I/O operations. K, M, G and T suffixes are supported.
+    <filesize>     Size of the file(s) to create. K, M, G and T suffixes are supported.
+    <path>         Path to the file(s) to create.
+```
 
 ### Example
 
-`cofi 1M 100G d:\testfile.dat`
+`cofi 1M 100G d:\testfile.dat -t 4`
 
 ### Building from source
 

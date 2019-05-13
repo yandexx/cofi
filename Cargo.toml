@@ -1,17 +1,18 @@
 [package]
 name = "cofi"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Vsevolod Zubarev <vsevolod.zubarev@veeam.com>"]
 edition = "2018"
 
 [dependencies]
 rand = "0.6.5"
 md5 = "0.6.1"
-winapi = { version = "0.3.6", features = ["winbase"] }
+winapi = { version = "0.3.7", features = ["winbase"] }
 log = "0.4.6"
 fern = "0.5.8"
 chrono = "0.4.6"
-libc = "0.2.50"
+libc = "0.2.54"
 failure = "0.1.5"
 num_cpus = "1.10.0"
 crossbeam-channel = "0.3.8"
+clap = "2.33.0"

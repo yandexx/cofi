@@ -1,5 +1,6 @@
 use clap::{App, AppSettings, Arg};
 use failure::{format_err, Error};
+use indicatif::ProgressBar;
 use log::{error, info};
 use rand::{thread_rng, Rng};
 use std::fs::OpenOptions;
@@ -41,7 +42,10 @@ fn main() -> Result<(), Error> {
         .chain(fern::log_file(log_file_name)?)
         .apply()?;
 
-    info!("cofi -- corruption finder. v{}.", env!("CARGO_PKG_VERSION"));
+    info!(
+        "cofi -- corruption finder. v{}. https://github.com/yandexx/cofi",
+        env!("CARGO_PKG_VERSION")
+    );
 
     let block_size = literal_to_bytes(args.value_of("blocksize").unwrap())? as usize;
     let file_size = literal_to_bytes(args.value_of("filesize").unwrap())? as usize;
@@ -77,11 +81,11 @@ fn main() -> Result<(), Error> {
             let thread_name = thread::current().name().unwrap().to_string();
             let path: String = update_path(&path, &thread_name);
             println!(
-                "[{}] Writing {} blocks of size {} bytes to file \"{}\"",
+                "[{}] Target: {} blocks of size {} bytes to file \"{}\"",
                 thread_name, blocks_total, block_size, path
             );
             info!(
-                "[{}] Writing {} blocks of size {} bytes to file \"{}\"",
+                "[{}] Target: {} blocks of size {} bytes to file \"{}\"",
                 thread_name, blocks_total, block_size, path
             );
             let mut iteration = 1;
@@ -117,6 +121,7 @@ fn main() -> Result<(), Error> {
                     let mut file = file.unwrap();
 
                     info!("[{}] Write enter.", thread_name);
+                    println!("[{}] Writing...", thread_name);
 
                     let (sender, receiver) = crossbeam_channel::bounded(4);
 
@@ -147,6 +152,11 @@ fn main() -> Result<(), Error> {
                             }
                         }));
                     }
+                    let progressbar = if workers_total == 1 {
+                        Some(ProgressBar::new(blocks_total as u64))
+                    } else {
+                        None
+                    };
                     for _ in 0..blocks_total {
                         let (data_block, digest) = receiver.recv()?;
                         if let Err(err) = file.write_all(&data_block) {
@@ -156,6 +166,9 @@ fn main() -> Result<(), Error> {
                             Err(err)?;
                         };
                         check_sums_src.lock().unwrap().push(digest);
+                        if let Some(bar) = progressbar.as_ref() {
+                            bar.inc(1);
+                        }
                     }
                     for thread in generator_threads {
                         thread
@@ -187,6 +200,7 @@ fn main() -> Result<(), Error> {
                     }
                     let mut file = file?;
                     info!("[{}] Read enter.", thread_name);
+                    println!("[{}] Reading...", thread_name);
 
                     let (sender, receiver) = crossbeam_channel::bounded(4);
 
@@ -219,6 +233,11 @@ fn main() -> Result<(), Error> {
                     }
                     let mut data_block: Vec<u8> = vec![0; block_size];
                     let check_sums_src = check_sums_src.lock().unwrap();
+                    let progressbar = if workers_total == 1 {
+                        Some(ProgressBar::new(blocks_total as u64))
+                    } else {
+                        None
+                    };
                     for (i, check_sum) in check_sums_src.iter().enumerate().take(blocks_total) {
                         if let Err(err) = file.read_exact(&mut data_block) {
                             io_error.store(true, Ordering::Relaxed);
@@ -227,6 +246,9 @@ fn main() -> Result<(), Error> {
                             Err(err)?;
                         }
                         sender.send(Some((data_block.clone(), i, *check_sum)))?;
+                        if let Some(bar) = progressbar.as_ref() {
+                            bar.inc(1);
+                        }
                     }
                     for _ in 0..summer_threads.len() {
                         sender.send(None)?;
@@ -286,7 +308,12 @@ fn setup_clap<'a>() -> clap::ArgMatches<'a> {
         .version(env!("CARGO_PKG_VERSION"))
         .author("Vsevolod Zubarev")
         .about("cofi -- corruption finder.")
-        .long_about("cofi -- corruption finder. The tool generates random data blocks, calculates md5 for them, writes blocks to a target file, afterwards reads the data back and compares md5 hashes. This procedure repeats forever until stopped manually, or until corruption gets detected.")
+        .long_about(
+"cofi -- corruption finder. The tool generates random data blocks, calculates md5 for them,
+writes blocks to a target file, afterwards reads the data back and compares md5 hashes. This
+procedure repeats forever until stopped manually, or until corruption gets detected.
+
+https://github.com/yandexx/cofi")
         .setting(AppSettings::DeriveDisplayOrder)
         .after_help("EXAMPLE:\r\n    cofi 1M 100G d:\\testfile.dat -t 4")
         .arg(

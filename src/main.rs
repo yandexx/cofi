@@ -91,27 +91,7 @@ fn main() -> Result<(), Error> {
             let mut iteration = 1;
             loop {
                 {
-                    #[cfg(target_os = "windows")]
-                    fn open_file(path: &str) -> io::Result<std::fs::File> {
-                        OpenOptions::new()
-                            .create(true)
-                            .write(true)
-                            .truncate(true)
-                            .custom_flags(FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH)
-                            .open(path)
-                    }
-
-                    #[cfg(not(target_os = "windows"))]
-                    fn open_file(path: &str) -> io::Result<std::fs::File> {
-                        OpenOptions::new()
-                            .create(true)
-                            .write(true)
-                            .truncate(true)
-                            .custom_flags(libc::O_SYNC | libc::O_DSYNC)
-                            .open(path)
-                    }
-
-                    let file = open_file(&path);
+                    let file = create_file(&path);
                     if let Err(err) = file {
                         io_error.store(true, Ordering::Relaxed);
                         println!("[{}] Failed to create {}: {:?}", thread_name, path, err);
@@ -166,8 +146,8 @@ fn main() -> Result<(), Error> {
                             Err(err)?;
                         };
                         check_sums_src.lock().unwrap().push(digest);
-                        if let Some(bar) = progressbar.as_ref() {
-                            bar.inc(1);
+                        if let Some(progress) = progressbar.as_ref() {
+                            progress.inc(1);
                         }
                     }
                     for thread in generator_threads {
@@ -179,19 +159,6 @@ fn main() -> Result<(), Error> {
                 }
 
                 {
-                    #[cfg(target_os = "windows")]
-                    fn open_file(path: &str) -> io::Result<std::fs::File> {
-                        OpenOptions::new()
-                            .read(true)
-                            .custom_flags(FILE_FLAG_NO_BUFFERING)
-                            .open(path)
-                    }
-
-                    #[cfg(not(target_os = "windows"))]
-                    fn open_file(path: &str) -> io::Result<std::fs::File> {
-                        OpenOptions::new().read(true).open(path)
-                    }
-
                     let file = open_file(&path);
                     if let Err(err) = &file {
                         io_error.store(true, Ordering::Relaxed);
@@ -246,8 +213,8 @@ fn main() -> Result<(), Error> {
                             Err(err)?;
                         }
                         sender.send(Some((data_block.clone(), i, *check_sum)))?;
-                        if let Some(bar) = progressbar.as_ref() {
-                            bar.inc(1);
+                        if let Some(progress) = progressbar.as_ref() {
+                            progress.inc(1);
                         }
                     }
                     for _ in 0..summer_threads.len() {
@@ -364,4 +331,37 @@ fn update_path(path: &str, thread_name: &str) -> String {
     }
 
     pathbuf.to_string_lossy().to_string()
+}
+
+#[cfg(target_os = "windows")]
+fn create_file(path: &str) -> io::Result<std::fs::File> {
+    OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .custom_flags(FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH)
+        .open(path)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn create_file(path: &str) -> io::Result<std::fs::File> {
+    OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .custom_flags(libc::O_SYNC | libc::O_DSYNC)
+        .open(path)
+}
+
+#[cfg(target_os = "windows")]
+fn open_file(path: &str) -> io::Result<std::fs::File> {
+    OpenOptions::new()
+        .read(true)
+        .custom_flags(FILE_FLAG_NO_BUFFERING)
+        .open(path)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn open_file(path: &str) -> io::Result<std::fs::File> {
+    OpenOptions::new().read(true).open(path)
 }

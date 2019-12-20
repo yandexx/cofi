@@ -96,7 +96,7 @@ fn main() -> Result<(), Error> {
                         io_error.store(true, Ordering::Relaxed);
                         println!("[{}] Failed to create {}: {:?}", thread_name, path, err);
                         error!("[{}] Failed to create {}: {:?}", thread_name, path, err);
-                        return Err(err)?;
+                        return Err(err.into());
                     }
                     let mut file = file.unwrap();
 
@@ -143,7 +143,7 @@ fn main() -> Result<(), Error> {
                             io_error.store(true, Ordering::Relaxed);
                             println!("[{}] Failed to write block: {:?}", thread_name, err);
                             error!("[{}] Failed to write block: {:?}", thread_name, err);
-                            Err(err)?;
+                            return Err(err.into());
                         };
                         check_sums_src.lock().unwrap().push(digest);
                         if let Some(progress) = progressbar.as_ref() {
@@ -210,7 +210,7 @@ fn main() -> Result<(), Error> {
                             io_error.store(true, Ordering::Relaxed);
                             println!("[{}] Failed to read block: {:?}", thread_name, err);
                             error!("[{}] Failed to read block: {:?}", thread_name, err);
-                            Err(err)?;
+                            return Err(err.into());
                         }
                         sender.send(Some((data_block.clone(), i, *check_sum)))?;
                         if let Some(progress) = progressbar.as_ref() {

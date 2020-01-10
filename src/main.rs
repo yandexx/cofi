@@ -122,7 +122,6 @@ fn main() -> Result<(), Error> {
                                     );
                                     panic!("Corruption in memory. Cloned block doesn't match the source.");
                                 }
-                                // let digest = md5::compute(&data_block);
                                 let digest = blake3::hash(&data_block);
                                 if blocks_generated.load(Ordering::SeqCst) < blocks_total {
                                     blocks_generated.fetch_add(1, Ordering::SeqCst);
@@ -183,18 +182,17 @@ fn main() -> Result<(), Error> {
                             while let Some((block, i, check_sum_src)) =
                                 receiver.recv().expect("Couldn't receive block.")
                             {
-                                // let digest = md5::compute(block);
                                 let digest = blake3::hash(block.as_slice());
                                 if check_sum_src != digest {
                                     data_corrupted.store(true, Ordering::Relaxed);
-                                    println!("[{}] MD5 mismatch in block {} in {}!", thread_name, i, path);
+                                    println!("[{}] CRC mismatch in block {} in {}!", thread_name, i, path);
                                     println!(
-                                        "[{}] Original md5: \"{:?}\", current md5: \"{:?}\".",
+                                        "[{}] Original hash: \"{:?}\"\ncurrent hash: \"{:?}\".",
                                         thread_name, check_sum_src, digest
                                     );
-                                    error!("[{}] MD5 mismatch in block {} in {}!", thread_name, i, path);
+                                    error!("[{}] CRC mismatch in block {} in {}!", thread_name, i, path);
                                     error!(
-                                        "[{}] Original md5: \"{:?}\", current md5: \"{:?}\".",
+                                        "[{}] Original hash: \"{:?}\"\ncurrent hash: \"{:?}\".",
                                         thread_name, check_sum_src, digest
                                     );
                                 }
@@ -226,7 +224,7 @@ fn main() -> Result<(), Error> {
                     for thread in summer_threads {
                         thread
                             .join()
-                            .expect("Couldn't join on a MD5 summer thread.");
+                            .expect("Couldn't join on a CRC summer thread.");
                     }
                     info!("[{}] Read exit.", thread_name);
                 }
@@ -279,8 +277,8 @@ fn setup_clap<'a>() -> clap::ArgMatches<'a> {
         .author("Vsevolod Zubarev")
         .about("cofi -- corruption finder.")
         .long_about(
-"cofi -- corruption finder. The tool generates random data blocks, calculates md5 for them,
-writes blocks to a target file, afterwards reads the data back and compares md5 hashes. This
+"cofi -- corruption finder. The tool generates random data blocks, calculates BLAKE3 hash for them,
+writes blocks to a target file, afterwards reads the data back and compares the hashes. This
 procedure repeats forever until stopped manually, or until corruption gets detected.
 
 https://github.com/yandexx/cofi")

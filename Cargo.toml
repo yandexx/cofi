@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 rand = "0.7.2"
-md5 = "0.7.0"
 winapi = { version = "0.3.8", features = ["winbase"] }
 log = "0.4.8"
 fern = "0.5.9"

@@ -122,7 +122,8 @@ fn main() -> Result<(), Error> {
                                     );
                                     panic!("Corruption in memory. Cloned block doesn't match the source.");
                                 }
-                                let digest = md5::compute(&data_block);
+                                // let digest = md5::compute(&data_block);
+                                let digest = blake3::hash(&data_block);
                                 if blocks_generated.load(Ordering::SeqCst) < blocks_total {
                                     blocks_generated.fetch_add(1, Ordering::SeqCst);
                                     sender.send((data_block,digest))?;
@@ -169,7 +170,8 @@ fn main() -> Result<(), Error> {
                     info!("[{}] Read enter.", thread_name);
                     println!("[{}] Reading...", thread_name);
 
-                    let (sender, receiver) = crossbeam_channel::bounded(4);
+                    use crossbeam_channel::{Sender,Receiver};
+                    let (sender, receiver): (Sender<Option<(Vec<u8>,_,_)>>, Receiver<Option<(_,_,_)>>) = crossbeam_channel::bounded(4);
 
                     let mut summer_threads = vec![];
                     for _ in 0..num_cpus::get() {
@@ -181,23 +183,24 @@ fn main() -> Result<(), Error> {
                             while let Some((block, i, check_sum_src)) =
                                 receiver.recv().expect("Couldn't receive block.")
                             {
-                                let digest = md5::compute(block);
+                                // let digest = md5::compute(block);
+                                let digest = blake3::hash(block.as_slice());
                                 if check_sum_src != digest {
                                     data_corrupted.store(true, Ordering::Relaxed);
                                     println!("[{}] MD5 mismatch in block {} in {}!", thread_name, i, path);
                                     println!(
-                                        "[{}] Original md5: \"{:x}\", current md5: \"{:x}\".",
+                                        "[{}] Original md5: \"{:?}\", current md5: \"{:?}\".",
                                         thread_name, check_sum_src, digest
                                     );
                                     error!("[{}] MD5 mismatch in block {} in {}!", thread_name, i, path);
                                     error!(
-                                        "[{}] Original md5: \"{:x}\", current md5: \"{:x}\".",
+                                        "[{}] Original md5: \"{:?}\", current md5: \"{:?}\".",
                                         thread_name, check_sum_src, digest
                                     );
                                 }
                             }
                         }));
-                    }
+                    } 
                     let mut data_block: Vec<u8> = vec![0; block_size];
                     let check_sums_src = check_sums_src.lock().unwrap();
                     let progressbar = if workers_total == 1 {

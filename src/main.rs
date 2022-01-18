@@ -270,9 +270,9 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn setup_clap<'a>() -> clap::ArgMatches<'a> {
+fn setup_clap() -> clap::ArgMatches {
     App::new("cofi")
-        .set_term_width(0)
+        .term_width(0)
         .version(env!("CARGO_PKG_VERSION"))
         .author("Vsevolod Zubarev")
         .about("cofi -- corruption finder.")
@@ -285,26 +285,26 @@ https://github.com/yandexx/cofi")
         .setting(AppSettings::DeriveDisplayOrder)
         .after_help("EXAMPLE:\r\n    cofi 1M 100G d:\\testfile.dat -t 4")
         .arg(
-            Arg::with_name("blocksize")
+            Arg::new("blocksize")
                 .required(true)
                 .takes_value(true)
                 .help("Block size of I/O operations. K, M, G and T suffixes are supported."),
         )
         .arg(
-            Arg::with_name("filesize")
+            Arg::new("filesize")
                 .required(true)
                 .takes_value(true)
                 .help("Size of the file(s) to create. K, M, G and T suffixes are supported."),
         )
         .arg(
-            Arg::with_name("path")
+            Arg::new("path")
                 .required(true)
                 .takes_value(true)
                 .help("Path to the file(s) to create."),
         )
         .arg(
-            Arg::with_name("threads")
-                .short("t")
+            Arg::new("threads")
+                .short('t')
                 .long("threads")
                 .default_value("1")
                 .help("The number of concurrent workers. Each worker works with a separate file."),

@@ -170,7 +170,9 @@ fn main() -> Result<(), Error> {
                     println!("[{}] Reading...", thread_name);
 
                     use crossbeam_channel::{Sender,Receiver};
-                    let (sender, receiver): (Sender<Option<(Vec<u8>,_,_)>>, Receiver<Option<(_,_,_)>>) = crossbeam_channel::bounded(4);
+
+                    type SendBlock = (Vec<u8>, usize, blake3::Hash);
+                    let (sender, receiver): (Sender<Option<SendBlock>>, Receiver<Option<SendBlock>>) = crossbeam_channel::bounded(4);
 
                     let mut summer_threads = vec![];
                     for _ in 0..num_cpus::get() {
@@ -198,7 +200,7 @@ fn main() -> Result<(), Error> {
                                 }
                             }
                         }));
-                    } 
+                    }
                     let mut data_block: Vec<u8> = vec![0; block_size];
                     let check_sums_src = check_sums_src.lock().unwrap();
                     let progressbar = if workers_total == 1 {

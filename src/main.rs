@@ -67,6 +67,15 @@ fn main() -> Result<(), Error> {
     }
     let workers_total = workers_total?;
 
+    let use_cache = args.is_present("use-cache");
+    if use_cache {
+        println!("Using system caching for I/O.");
+        info!("Using system caching for I/O.");
+    } else {
+        println!("Using unbuffered access — no system caching.");
+        info!("Using unbuffered access — no system caching.");
+    }
+
     let thread_corrupted = Arc::new(AtomicBool::new(false));
     let io_error = Arc::new(AtomicBool::new(false));
 
@@ -91,7 +100,7 @@ fn main() -> Result<(), Error> {
             let mut iteration = 1;
             loop {
                 {
-                    let file = create_file(&path);
+                    let file = create_file(&path, use_cache);
                     if let Err(err) = file {
                         io_error.store(true, Ordering::Relaxed);
                         println!("[{}] Failed to create {}: {:?}", thread_name, path, err);
@@ -159,7 +168,7 @@ fn main() -> Result<(), Error> {
                 }
 
                 {
-                    let file = open_file(&path);
+                    let file = open_file(&path, use_cache);
                     if let Err(err) = &file {
                         io_error.store(true, Ordering::Relaxed);
                         println!("[{}] Failed to open {}: {:?}", thread_name, path, err);
@@ -311,6 +320,11 @@ https://github.com/yandexx/cofi")
                 .default_value("1")
                 .help("The number of concurrent workers. Each worker works with a separate file."),
         )
+        .arg(
+            Arg::new("use-cache")
+                .long("use-cache")
+                .help("Use system caching for all I/O operations instead of unbuffered access."),
+        )
         .get_matches()
 }
 
@@ -336,35 +350,63 @@ fn update_path(path: &str, thread_name: &str) -> String {
     pathbuf.to_string_lossy().to_string()
 }
 
+// Windows
 #[cfg(target_os = "windows")]
-fn create_file(path: &str) -> io::Result<std::fs::File> {
-    OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .custom_flags(FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH)
-        .open(path)
+fn create_file(path: &str, use_cache: bool) -> io::Result<std::fs::File> {
+    if use_cache {
+        OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(path)
+    } else {
+        OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .custom_flags(FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH)
+            .open(path)
+    }
 }
-
-#[cfg(not(target_os = "windows"))]
-fn create_file(path: &str) -> io::Result<std::fs::File> {
-    OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .custom_flags(libc::O_SYNC | libc::O_DSYNC)
-        .open(path)
-}
-
 #[cfg(target_os = "windows")]
-fn open_file(path: &str) -> io::Result<std::fs::File> {
-    OpenOptions::new()
-        .read(true)
-        .custom_flags(FILE_FLAG_NO_BUFFERING)
-        .open(path)
+fn open_file(path: &str, use_cache: bool) -> io::Result<std::fs::File> {
+    if use_cache {
+        OpenOptions::new().read(true).open(path)
+    } else {
+        OpenOptions::new()
+            .read(true)
+            .custom_flags(FILE_FLAG_NO_BUFFERING)
+            .open(path)
+    }
 }
 
+// Linux
 #[cfg(not(target_os = "windows"))]
-fn open_file(path: &str) -> io::Result<std::fs::File> {
-    OpenOptions::new().read(true).open(path)
+fn create_file(path: &str, use_cache: bool) -> io::Result<std::fs::File> {
+    if use_cache {
+        OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(path)
+    } else {
+        OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .custom_flags(libc::O_SYNC | libc::O_DSYNC)
+            // .custom_flags(libc::O_DIRECT)
+            .open(path)
+    }
+}
+#[cfg(not(target_os = "windows"))]
+fn open_file(path: &str, use_cache: bool) -> io::Result<std::fs::File> {
+    if use_cache {
+        OpenOptions::new().read(true).open(path)
+    } else {
+        OpenOptions::new()
+            .read(true)
+            // .custom_flags(libc::O_DIRECT)
+            .open(path)
+    }
 }

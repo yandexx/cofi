@@ -1,13 +1,13 @@
-use failure::Error;
-use failure::Fail;
+use anyhow::Result;
+use thiserror::Error;
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 enum ConverterError {
-    #[fail(display = "unknown suffix: {}", suffix)]
+    #[error("unknown suffix: {}", suffix)]
     UnknownSuffix { suffix: String },
 }
 
-pub fn literal_to_bytes(input: &str) -> Result<u64, Error> {
+pub fn literal_to_bytes(input: &str) -> Result<u64> {
     match input.parse::<u64>() {
         Ok(result) => Ok(result),
         Err(_) => {

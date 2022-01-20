@@ -1,5 +1,5 @@
+use anyhow::{anyhow, Result};
 use clap::{App, AppSettings, Arg};
-use failure::{format_err, Error};
 use indicatif::ProgressBar;
 use log::{error, info};
 use rand::{thread_rng, Rng};
@@ -19,7 +19,7 @@ use winapi::um::winbase::{FILE_FLAG_NO_BUFFERING, FILE_FLAG_WRITE_THROUGH};
 mod converter;
 use crate::converter::literal_to_bytes;
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<()> {
     let args = setup_clap();
 
     let log_file_name = format!(
@@ -59,7 +59,7 @@ fn main() -> Result<(), Error> {
     let mut threads = vec![];
     let workers_total = args.value_of("threads").unwrap().parse::<u16>();
     if let Err(err) = workers_total {
-        return Err(format_err!(
+        return Err(anyhow!(
             "Cannot parse worker count `{}`: {}.",
             args.value_of("threads").unwrap(),
             err
@@ -85,7 +85,7 @@ fn main() -> Result<(), Error> {
         let data_corrupted = Arc::new(AtomicBool::new(false));
         let io_error = io_error.clone();
         let tbuilder = thread::Builder::new().name(format!("{:02}", t));
-        let thandle = tbuilder.spawn(move || -> Result<(), Error> {
+        let thandle = tbuilder.spawn(move || -> Result<()> {
             let check_sums_src = Arc::new(Mutex::new(Vec::with_capacity(blocks_total)));
             let thread_name = thread::current().name().unwrap().to_string();
             let path: String = update_path(&path, &thread_name);
@@ -120,7 +120,7 @@ fn main() -> Result<(), Error> {
                     for _ in 0..num_cpus::get() {
                         let sender = sender.clone();
                         let blocks_generated = blocks_generated.clone();
-                        generator_threads.push(thread::spawn(move || -> Result<(), Error> {
+                        generator_threads.push(thread::spawn(move || -> Result<()> {
                             let mut pre_block: Vec<u8> = vec![0; block_size];
                             loop {
                                 thread_rng().fill(&mut pre_block[..]);
@@ -242,18 +242,18 @@ fn main() -> Result<(), Error> {
                 if io_error.load(Ordering::Relaxed) {
                     error!("[{}] I/O error in another thread, exiting.", thread_name);
                     println!("[{}] I/O error in another thread, exiting.", thread_name);
-                    return Err(format_err!("I/O error."));
+                    return Err(anyhow!("I/O error."));
                 }
                 if data_corrupted.load(Ordering::Relaxed) {
                     thread_corrupted.store(true, Ordering::Relaxed);
                     error!("[{}] Data got corrupted, exiting.", thread_name);
                     println!("[{}] Data got corrupted, exiting.", thread_name);
-                    return Err(format_err!("Data got corrupted."));
+                    return Err(anyhow!("Data got corrupted."));
                 }
                 if thread_corrupted.load(Ordering::Relaxed) {
                     error!("[{}] Data got corrupted in another thread, exiting.", thread_name);
                     println!("[{}] Data got corrupted in another thread, exiting.", thread_name);
-                    return Err(format_err!("Data got corrupted."));
+                    return Err(anyhow!("Data got corrupted."));
                 }
 
                 println!("[{}] Iteration {} OK.", thread_name, iteration);

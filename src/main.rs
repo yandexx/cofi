@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use clap::{App, AppSettings, Arg};
+use clap::{AppSettings, Arg, Command};
 use indicatif::ProgressBar;
 use log::{error, info};
 use rand::{thread_rng, Rng};
@@ -282,7 +282,7 @@ fn main() -> Result<()> {
 }
 
 fn setup_clap() -> clap::ArgMatches {
-    App::new("cofi")
+    Command::new("cofi")
         .term_width(0)
         .version(env!("CARGO_PKG_VERSION"))
         .author("Vsevolod Zubarev")

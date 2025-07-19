@@ -335,7 +335,7 @@ https://github.com/yandexx/cofi")
                 .short('s')
                 .long("sleep")
                 .default_value("0")
-                .help("The amount of time a worker should wait before verifying new file. Can be useful for cases where storage system has hot and cold tiers."),
+                .help("Number of seconds a worker should wait before verifying the new file. This setting can be useful for storage systems with hot and cold tiers."),
         )
         .arg(
             Arg::new("use-cache")

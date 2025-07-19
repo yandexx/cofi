@@ -18,34 +18,16 @@ USAGE:
     cofi [OPTIONS] <blocksize> <filesize> <path>
 
 ARGS:
-    <blocksize>
-            Block size of I/O operations. K, M, G and T suffixes are supported.
-
-    <filesize>
-            Size of the file(s) to create. K, M, G and T suffixes are supported.
-
-    <path>
-            Path to the file(s) to create.
+    <blocksize>    Block size of I/O operations. K, M, G and T suffixes are supported.
+    <filesize>     Size of the file(s) to create. K, M, G and T suffixes are supported.
+    <path>         Path to the file(s) to create.
 
 OPTIONS:
-    -t, --threads <threads>
-            The number of concurrent workers. Each worker works with a separate file.
-            
-            [default: 1]
-
-    -s, --sleep <sleep>
-            The amount of time a worker should wait before verifying new file. Can be useful for cases where storage system has hot and cold tiers.
-            
-            [default: 0]
-
-        --use-cache
-            Use system caching for all I/O operations instead of unbuffered access.
-
-    -h, --help
-            Print help information
-
-    -V, --version
-            Print version information
+    -t, --threads <threads>    The number of concurrent workers. Each worker works with a separate file. [default: 1]
+    -s, --sleep <sleep>        Number of seconds a worker should wait before verifying the new file. This setting can be useful for storage systems with hot and cold tiers. [default: 0]
+        --use-cache            Use system caching for all I/O operations instead of unbuffered access.
+    -h, --help                 Print help information
+    -V, --version              Print version information
 ```
 
 ### Example

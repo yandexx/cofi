@@ -13,11 +13,13 @@ use std::os::windows::prelude::*;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 #[cfg(target_os = "windows")]
 use winapi::um::winbase::{FILE_FLAG_NO_BUFFERING, FILE_FLAG_WRITE_THROUGH};
 
 mod converter;
 use crate::converter::literal_to_bytes;
+use crate::converter::literal_to_seconds;
 
 fn main() -> Result<()> {
     let args = setup_clap();
@@ -66,6 +68,8 @@ fn main() -> Result<()> {
         ));
     }
     let workers_total = workers_total?;
+    
+    let sleep_duration = literal_to_seconds(args.value_of("sleep").unwrap())? as u64;
 
     let use_cache = args.is_present("use-cache");
     if use_cache {
@@ -165,6 +169,12 @@ fn main() -> Result<()> {
                             .expect("Couldn't join on block generator thread.")?;
                     }
                     info!("[{}] Write exit.", thread_name);
+                }
+
+                if sleep_duration != 0 {
+                    println!("[{}] Worker is sleeping for {} seconds.", thread_name, sleep_duration);
+                    info!("[{}] Worker is sleeping for {} seconds.", thread_name, sleep_duration);
+                    thread::sleep(Duration::from_secs(sleep_duration));
                 }
 
                 {
@@ -319,6 +329,13 @@ https://github.com/yandexx/cofi")
                 .long("threads")
                 .default_value("1")
                 .help("The number of concurrent workers. Each worker works with a separate file."),
+        )
+        .arg(
+            Arg::new("sleep")
+                .short('s')
+                .long("sleep")
+                .default_value("0")
+                .help("The amount of time a worker should wait before verifying new file. Can be useful for cases where storage system has hot and cold tiers."),
         )
         .arg(
             Arg::new("use-cache")

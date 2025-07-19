@@ -1,5 +1,7 @@
 use anyhow::Result;
 use thiserror::Error;
+use std::convert::TryFrom;
+use duration_string::DurationString;
 
 #[derive(Debug, Error)]
 enum ConverterError {
@@ -22,6 +24,18 @@ pub fn literal_to_bytes(input: &str) -> Result<u64> {
                     suffix: suffix.to_owned(),
                 }
                 .into()),
+            }
+        }
+    }
+}
+
+pub fn literal_to_seconds(input: &str) -> Result<u64> {
+    match input.parse::<u64>() {
+        Ok(result) => Ok(result),
+        Err(_) => {
+            match DurationString::try_from(String::from(input)) {
+                Ok(duration) => Ok(duration.as_secs()),
+                Err(_)     => Ok(0),
             }
         }
     }

@@ -68,7 +68,7 @@ fn main() -> Result<()> {
         ));
     }
     let workers_total = workers_total?;
-    
+
     let sleep_duration = literal_to_seconds(args.value_of("sleep").unwrap())? as u64;
 
     let use_cache = args.is_present("use-cache");
